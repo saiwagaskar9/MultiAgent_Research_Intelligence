@@ -177,6 +177,7 @@ def run_multi_agent_pipeline(
 
     state.execution_time_seconds = time.time() - start_time
     state.pipeline_complete = True
+    bus.set_current_state(state)
 
     bus.post("system",
              f"⌛ Pipeline complete in {state.execution_time_seconds:.1f}s | "
@@ -241,5 +242,6 @@ def finalize_report(state: ResearchState, approved: bool, feedback: str = "") ->
         bus.post("system", "📝 Human rejection received — feedback sent to Writer for revision",
                  message_type=MessageType.SYSTEM)
 
+    bus.set_current_state(state)
     return state
 

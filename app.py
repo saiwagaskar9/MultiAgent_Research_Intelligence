@@ -619,18 +619,19 @@ render_hero()
 active = st.session_state.active_tab
 
 # ─── Sync with Global Communication Bus ───────────────────────────────────────
+active_st = bus.get_current_state()
+
 if bus.is_running():
     st.session_state.research_running = True
-    active_st = bus.get_current_state()
     if active_st:
         st.session_state.current_state = active_st
 else:
     if st.session_state.research_running:
         st.session_state.research_running = False
         st.session_state.research_complete = True
-        active_st = bus.get_current_state()
-        if active_st:
-            st.session_state.current_state = active_st
+    if active_st:
+        st.session_state.current_state = active_st
+        st.session_state.research_complete = True
 
 # ─── Auto-refresh while research is running ───────────────────────────────────
 if st.session_state.research_running:
@@ -915,6 +916,10 @@ elif active == "research":
 # ═══════════════════════════════════════════════════════════════════════════════
 elif active == "monitor":
     state = st.session_state.current_state
+    if not state:
+        state = bus.get_current_state()
+        if state:
+            st.session_state.current_state = state
 
     # Status bar
     if st.session_state.research_running:
@@ -996,6 +1001,34 @@ elif active == "monitor":
 # ═══════════════════════════════════════════════════════════════════════════════
 elif active == "report":
     state = st.session_state.current_state
+
+    # Fallback 1: check communication bus
+    if not state:
+        state = bus.get_current_state()
+        if state:
+            st.session_state.current_state = state
+
+    # Fallback 2: restore from SQLite database if refreshed
+    if not state:
+        sessions = get_all_sessions()
+        if sessions and sessions[0].get("report_text"):
+            latest = sessions[0]
+            from core.state import ResearchState, ReviewResult
+            restored_state = ResearchState(
+                session_id=latest["id"],
+                topic=latest["topic"],
+                depth=latest.get("depth", "standard"),
+                final_report=latest["report_text"],
+                draft_report=latest["report_text"],
+                pipeline_complete=True,
+                execution_time_seconds=latest.get("execution_time", 0.0),
+                total_agent_calls=latest.get("agent_calls", 0),
+                review_result=ReviewResult(score=latest.get("quality_score", 0), approved=True),
+                awaiting_human_approval=False,
+                human_approved=True,
+            )
+            state = restored_state
+            st.session_state.current_state = state
 
     if not state:
         st.info("No research report generated yet. Start a research session from **New Research**.")
