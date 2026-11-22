@@ -7,8 +7,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ─── API Keys & Providers ─────────────────────────────────────────────────────
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+def _get_secret(key: str, default: str = "") -> str:
+    """Retrieve secret from environment or Streamlit Community Cloud secrets."""
+    val = os.getenv(key, "")
+    if not val:
+        try:
+            import streamlit as st
+            if hasattr(st, "secrets") and key in st.secrets:
+                val = str(st.secrets[key])
+                os.environ[key] = val  # Ensure SDKs reading os.environ also find it
+        except Exception:
+            pass
+    return val or default
+
+GOOGLE_API_KEY = _get_secret("GOOGLE_API_KEY", "")
+GROQ_API_KEY = _get_secret("GROQ_API_KEY", "")
 
 # Groq Configuration (Ultra-fast inference ~500 tok/s)
 GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
