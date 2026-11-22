@@ -1011,24 +1011,27 @@ elif active == "report":
     # Fallback 2: restore from SQLite database if refreshed
     if not state:
         sessions = get_all_sessions()
-        if sessions and sessions[0].get("report_text"):
-            latest = sessions[0]
-            from core.state import ResearchState, ReviewResult
-            restored_state = ResearchState(
-                session_id=latest["id"],
-                topic=latest["topic"],
-                depth=latest.get("depth", "standard"),
-                final_report=latest["report_text"],
-                draft_report=latest["report_text"],
-                pipeline_complete=True,
-                execution_time_seconds=latest.get("execution_time", 0.0),
-                total_agent_calls=latest.get("agent_calls", 0),
-                review_result=ReviewResult(score=latest.get("quality_score", 0), approved=True),
-                awaiting_human_approval=False,
-                human_approved=True,
-            )
-            state = restored_state
-            st.session_state.current_state = state
+        if sessions:
+            for s in sessions:
+                rep_text = s.get("report_text") or get_session_report(s["id"])
+                if rep_text:
+                    from core.state import ResearchState, ReviewResult
+                    restored_state = ResearchState(
+                        session_id=s["id"],
+                        topic=s["topic"],
+                        depth=s.get("depth", "standard"),
+                        final_report=rep_text,
+                        draft_report=rep_text,
+                        pipeline_complete=True,
+                        execution_time_seconds=s.get("execution_time", 0.0),
+                        total_agent_calls=s.get("agent_calls", 0),
+                        review_result=ReviewResult(score=s.get("quality_score", 0), approved=True),
+                        awaiting_human_approval=False,
+                        human_approved=True,
+                    )
+                    state = restored_state
+                    st.session_state.current_state = state
+                    break
 
     if not state:
         st.info("No research report generated yet. Start a research session from **New Research**.")
@@ -1217,9 +1220,27 @@ elif active == "history":
             session_id = s.get("id", "")
             report_text = s.get("report_text", "") or get_session_report(session_id)
 
-            col_v, col_d_md, col_del = st.columns(3)
+            col_open, col_v, col_d_md, col_del = st.columns([2, 1, 1, 1])
+            with col_open:
+                if report_text and st.button("📋 Open", key=f"open_rep_{session_id}", use_container_width=True, help="Open in Report Viewer"):
+                    from core.state import ResearchState, ReviewResult
+                    st.session_state.current_state = ResearchState(
+                        session_id=s["id"],
+                        topic=topic,
+                        depth=s.get("depth", "standard"),
+                        final_report=report_text,
+                        draft_report=report_text,
+                        pipeline_complete=True,
+                        execution_time_seconds=exec_time,
+                        total_agent_calls=s.get("agent_calls", 0),
+                        review_result=ReviewResult(score=score, approved=True),
+                        awaiting_human_approval=False,
+                        human_approved=True,
+                    )
+                    st.session_state.active_tab = "report"
+                    st.rerun()
             with col_v:
-                if report_text and st.button("👁", key=f"view_{session_id}", help="View report"):
+                if report_text and st.button("👁", key=f"view_{session_id}", help="Quick Preview"):
                     st.session_state[f"show_report_{session_id}"] = not st.session_state.get(f"show_report_{session_id}", False)
                     st.rerun()
             with col_d_md:

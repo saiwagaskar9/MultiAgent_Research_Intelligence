@@ -19,6 +19,7 @@ __pycache__/
 *.db
 *.sqlite
 *.sqlite3
+!research_history.db
 
 # Operating System files
 .DS_Store
